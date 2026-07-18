@@ -1,0 +1,25 @@
+{
+  "name": "poolmate",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@vitejs/plugin-react": "latest",
+    "firebase": "^12.16.0",
+    "leaflet": "^1.9.4",
+    "react": "latest",
+    "react-dom": "latest",
+    "react-leaflet": "^5.0.0",
+    "vite": "latest"
+  },
+  "devDependencies": {
+    "autoprefixer": "latest",
+    "postcss": "latest",
+    "tailwindcss": "3.4.17"
+  }
+}
