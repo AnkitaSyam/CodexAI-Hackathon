@@ -70,8 +70,14 @@ const meetingDivIcon = L.divIcon({
 const fallbackMessage = (pool, departureFormatted) =>
   `You’re all set for ${pool.destination}! Please agree on a meeting point and head out together for your departure at ${departureFormatted}.`
 
-export default function PoolCard({ pool, onConfirmed, onNotice }) {
+export default function PoolCard({ pool, onConfirmed, onNotice, currentUser }) {
   const [confirming, setConfirming] = useState(false)
+  const [selectedRiderIds, setSelectedRiderIds] = useState(() => new Set())
+
+  const myRides = pool.rides.filter((ride) => ride.uid === currentUser?.uid)
+  const otherRides = pool.rides.filter((ride) => ride.uid !== currentUser?.uid)
+  const selectedRides = pool.rides.filter((ride) => myRides.some((myRide) => myRide.id === ride.id) || selectedRiderIds.has(ride.id))
+  const canConfirm = myRides.length > 0 && selectedRiderIds.size > 0
 
   // Formatted departure date and 12-hour AM/PM time
   const departureFormatted = formatDepartureDisplay(
@@ -87,8 +93,9 @@ export default function PoolCard({ pool, onConfirmed, onNotice }) {
   const hasGpsMap = gpsMembers.length > 0 && pool.meetingPoint
 
   async function confirmPool() {
+    if (!canConfirm) return
     setConfirming(true)
-    const people = pool.rides.map(({ name, from }) => `${name} (from ${from || 'nearby'})`).join(', ')
+    const people = selectedRides.map(({ name, from }) => `${name} (from ${from || 'nearby'})`).join(', ')
     let message = fallbackMessage(pool, departureFormatted)
 
     try {
@@ -123,8 +130,17 @@ export default function PoolCard({ pool, onConfirmed, onNotice }) {
     }
 
     try {
-      await Promise.all(pool.rides.map((ride) => updateDoc(doc(db, 'rides', ride.id), { matched: true })))
-      onConfirmed({ ...pool, message, departureFormatted })
+      await Promise.all(selectedRides.map((ride) => updateDoc(doc(db, 'rides', ride.id), { matched: true })))
+      const selectedGpsMembers = selectedRides.filter(
+        (ride) => ride.riderLocation && typeof ride.riderLocation.lat === 'number' && typeof ride.riderLocation.lng === 'number'
+      )
+      const selectedMeetingPoint = selectedGpsMembers.length
+        ? {
+            lat: selectedGpsMembers.reduce((sum, ride) => sum + ride.riderLocation.lat, 0) / selectedGpsMembers.length,
+            lng: selectedGpsMembers.reduce((sum, ride) => sum + ride.riderLocation.lng, 0) / selectedGpsMembers.length,
+          }
+        : null
+      onConfirmed({ ...pool, rides: selectedRides, meetingPoint: selectedMeetingPoint, message, departureFormatted })
       onNotice('Pool confirmed! Have a safe ride.')
     } catch (error) {
       console.error(error)
@@ -137,6 +153,15 @@ export default function PoolCard({ pool, onConfirmed, onNotice }) {
   // Derive unique 'from' locations
   const fromLocations = Array.from(new Set(pool.rides.map((r) => r.from).filter(Boolean))).join(' / ')
   const cardTitle = fromLocations ? `From ${fromLocations} → ${pool.destination}` : pool.destination
+
+  const toggleRider = (rideId) => {
+    setSelectedRiderIds((current) => {
+      const next = new Set(current)
+      if (next.has(rideId)) next.delete(rideId)
+      else next.add(rideId)
+      return next
+    })
+  }
 
   return (
     <article className="group rounded-2xl border border-slate-800 bg-slate-900/90 p-5 sm:p-6 shadow-xl backdrop-blur-xl transition-all duration-300 hover:border-indigo-500/50 hover:shadow-2xl hover:shadow-indigo-500/10">
@@ -247,7 +272,7 @@ export default function PoolCard({ pool, onConfirmed, onNotice }) {
             <svg className="h-4 w-4 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
-            People also headed here ({pool.rides.length})
+            Choose your pool ({otherRides.length} match{otherRides.length === 1 ? '' : 'es'})
           </span>
           <span className="text-[10px] text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/20 font-medium">
             Match Preview
@@ -255,37 +280,50 @@ export default function PoolCard({ pool, onConfirmed, onNotice }) {
         </div>
 
         <div className="space-y-2">
-          {pool.rides.map((ride) => (
+          {pool.rides.map((ride) => {
+            const isMine = ride.uid === currentUser?.uid
+            const isSelected = isMine || selectedRiderIds.has(ride.id)
+            return (
             <div
               key={ride.id}
-              className="flex items-center justify-between rounded-lg bg-slate-900 px-3 py-2 text-xs"
+              className={`flex items-center justify-between rounded-lg border px-3 py-2 text-xs transition ${isSelected ? 'border-indigo-500/30 bg-indigo-500/10' : 'border-transparent bg-slate-900'}`}
             >
-              <div>
+              <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-2.5">
+                <input
+                  type="checkbox"
+                  checked={isSelected}
+                  disabled={isMine}
+                  onChange={() => toggleRider(ride.id)}
+                  className="h-4 w-4 shrink-0 rounded border-slate-600 bg-slate-950 text-indigo-500 accent-indigo-500 disabled:cursor-default disabled:opacity-100"
+                />
+                <div className="min-w-0">
                 <span className="font-semibold text-slate-100">{ride.name}</span>
+                {isMine && <span className="ml-2 rounded bg-indigo-500/15 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-indigo-300">You</span>}
                 {ride.from && (
                   <span className="ml-2 text-slate-400">
                     from <strong className="text-slate-300">{ride.from}</strong>
                   </span>
                 )}
                 {ride.note && <p className="text-[11px] text-slate-500 mt-0.5">{ride.note}</p>}
-              </div>
+                </div>
+              </label>
               <span className="rounded bg-slate-800 px-2 py-0.5 text-[11px] text-indigo-300 font-medium border border-slate-700/60">
                 {formatDepartureDisplay(ride.departureDate, ride.departureTime, ride.departureTimestamp)}
               </span>
             </div>
-          ))}
+          )})}
         </div>
       </div>
 
       {/* Integrated Estimated Fare Comparison */}
       <div className="mb-4">
-        <FareComparison riderCount={pool.rides.length} />
+        <FareComparison riderCount={selectedRides.length || 1} />
       </div>
 
       {/* Action Button: Pool with these people */}
       <button
         onClick={confirmPool}
-        disabled={confirming}
+        disabled={confirming || !canConfirm}
         className="w-full rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-4 py-3.5 text-sm font-bold text-white shadow-lg shadow-emerald-500/20 transition-all duration-200 hover:from-emerald-600 hover:to-emerald-700 hover:shadow-emerald-500/30 focus:ring-4 focus:ring-emerald-500/30 active:scale-[0.99] disabled:cursor-wait disabled:opacity-60 flex items-center justify-center gap-2"
       >
         {confirming ? (
@@ -298,7 +336,7 @@ export default function PoolCard({ pool, onConfirmed, onNotice }) {
           </>
         ) : (
           <>
-            Pool with these people
+            {canConfirm ? `Pool with ${selectedRiderIds.size} selected rider${selectedRiderIds.size === 1 ? '' : 's'}` : 'Choose at least one rider'}
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
             </svg>

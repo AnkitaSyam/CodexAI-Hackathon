@@ -15,9 +15,9 @@
   .app-shell {
     @apply relative min-h-screen overflow-hidden bg-[#101014];
     background-image:
-      radial-gradient(circle at 6% 5%, rgba(255, 111, 97, 0.17), transparent 24rem),
-      radial-gradient(circle at 96% 8%, rgba(177, 255, 98, 0.11), transparent 20rem),
-      linear-gradient(155deg, #18171f 0%, #101014 46%, #0c0c0f 100%);
+      radial-gradient(circle at 16% -5%, rgba(79, 70, 229, 0.25), transparent 30rem),
+      radial-gradient(circle at 100% 15%, rgba(14, 165, 233, 0.12), transparent 26rem),
+      linear-gradient(180deg, #11182b 0%, #020617 45%, #020617 100%);
   }
 
   .app-shell::before {
@@ -34,7 +34,7 @@
   }
 
   .eyebrow {
-    @apply text-[10px] font-bold uppercase tracking-[0.2em] text-[#b1ff62]/80;
+    @apply text-[10px] font-bold uppercase tracking-[0.2em] text-[#8fc9c1]/80;
   }
 
   .topbar {
@@ -47,7 +47,7 @@
 
   .route-label::before {
     content: '';
-    @apply h-2 w-2 rounded-full bg-[#b1ff62] shadow-[0_0_0_4px_rgba(177,255,98,0.12)];
+    @apply h-2 w-2 rounded-full bg-[#d6a662] shadow-[0_0_0_4px_rgba(214,166,98,0.12)];
   }
 
   .boarding-card {
@@ -56,7 +56,40 @@
 
   .boarding-card::after {
     content: '';
-    @apply absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[#ff6f61] via-[#ff9e64] to-[#b1ff62];
+    @apply absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[#c97966] via-[#7b86c9] to-[#5f9f96];
+  }
+
+  .corner-route {
+    @apply pointer-events-none absolute -right-16 -top-12 h-72 w-72 opacity-80 sm:right-0 sm:top-0;
+  }
+
+  .corner-route::before {
+    content: '';
+    @apply absolute inset-10 rounded-full border border-dashed border-indigo-300/20;
+    animation: slow-spin 22s linear infinite;
+  }
+
+  .corner-route::after {
+    content: '';
+    @apply absolute inset-[3.75rem] rounded-full border border-sky-300/10;
+    animation: slow-spin 16s linear infinite reverse;
+  }
+
+  .route-orb {
+    @apply absolute grid h-9 w-9 place-items-center rounded-full border border-indigo-200/30 bg-indigo-500/20 text-xs font-black text-indigo-100 shadow-lg shadow-indigo-950/40 backdrop-blur;
+  }
+
+  .route-orb-one { top: 24%; right: 29%; animation: orbit-one 8s ease-in-out infinite; }
+  .route-orb-two { top: 56%; right: 11%; animation: orbit-two 10s ease-in-out infinite; }
+  .route-orb-three { top: 70%; right: 48%; animation: orbit-three 9s ease-in-out infinite; }
+
+  @keyframes slow-spin { to { transform: rotate(360deg); } }
+  @keyframes orbit-one { 50% { transform: translate(-8px, 11px) scale(1.08); } }
+  @keyframes orbit-two { 50% { transform: translate(-12px, -9px) scale(.92); } }
+  @keyframes orbit-three { 50% { transform: translate(10px, -6px) scale(1.05); } }
+
+  @media (prefers-reduced-motion: reduce) {
+    .corner-route::before, .corner-route::after, .route-orb { animation: none; }
   }
 }
 

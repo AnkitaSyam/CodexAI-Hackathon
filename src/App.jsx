@@ -3,8 +3,60 @@ import PostForm from './components/PostForm'
 import PoolList from './components/PoolList'
 import AuthScreen from './components/AuthScreen'
 import { auth, signOut, onAuthStateChanged } from './firebase'
+import { formatDepartureDisplay, getDepartureDateObj } from './utils/dateUtils'
+
+const midpointPlaceCache = new Map()
+
+function MeetingPlace({ meetingPoint, locationName, fallbackLocation }) {
+  const [placeName, setPlaceName] = useState(() => meetingPoint ? midpointPlaceCache.get(`${meetingPoint.lat.toFixed(5)},${meetingPoint.lng.toFixed(5)}`) : null)
+
+  useEffect(() => {
+    if (locationName) return undefined
+    if (!meetingPoint) return undefined
+    const cacheKey = `${meetingPoint.lat.toFixed(5)},${meetingPoint.lng.toFixed(5)}`
+    if (midpointPlaceCache.has(cacheKey)) {
+      setPlaceName(midpointPlaceCache.get(cacheKey))
+      return undefined
+    }
+
+    const controller = new AbortController()
+    setPlaceName(null)
+    fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=18&lat=${encodeURIComponent(meetingPoint.lat)}&lon=${encodeURIComponent(meetingPoint.lng)}`, {
+      signal: controller.signal,
+      headers: { 'Accept-Language': 'en' },
+    })
+      .then((response) => response.ok ? response.json() : Promise.reject(new Error('Reverse geocoding failed')))
+      .then((data) => {
+        const address = data.address || {}
+        const name = data.name || [address.road, address.neighbourhood || address.suburb, address.village || address.town || address.city].filter(Boolean).join(', ') || data.display_name?.split(',').slice(0, 2).join(', ')
+        const result = name || 'Suggested midpoint'
+        midpointPlaceCache.set(cacheKey, result)
+        setPlaceName(result)
+      })
+      .catch((error) => {
+        if (error.name !== 'AbortError') setPlaceName('Suggested midpoint')
+      })
+    return () => controller.abort()
+  }, [meetingPoint, locationName])
+
+  if (locationName) return <>{locationName}</>
+  if (meetingPoint && !placeName) return <>Finding a nearby meeting place…</>
+  return <>{placeName || `Agree on a pickup point near ${fallbackLocation || 'your starting location'}`}</>
+}
 
 function ConfirmedPool({ pool }) {
+  const departure = pool.departureTimestamp?.toDate?.()
+    || getDepartureDateObj(pool.departureDate, pool.departureTime)
+  const meetingAt = departure ? new Date(departure.getTime() - 10 * 60 * 1000) : null
+  const meetingTime = meetingAt
+    ? formatDepartureDisplay(null, null, meetingAt)
+    : pool.departureFormatted || '10 minutes before departure'
+  const originNames = pool.rides
+    ?.map((ride) => ride.from?.trim())
+    .filter(Boolean) || []
+  const normalizedOrigins = new Set(originNames.map((origin) => origin.toLowerCase()))
+  const sharedOrigin = normalizedOrigins.size === 1 ? originNames[0] : null
+
   return (
     <article className="rounded-2xl border border-emerald-500/30 bg-emerald-950/20 p-5 shadow-xl backdrop-blur-xl">
       <div className="flex items-center justify-between gap-2">
@@ -16,12 +68,17 @@ function ConfirmedPool({ pool }) {
           Confirmed Pool
         </span>
       </div>
-      <p className="mt-4 text-[10px] font-bold uppercase tracking-wider text-emerald-400/80">
-        AI Coordination Plan (Groq)
-      </p>
-      <p className="mt-1 text-sm leading-relaxed text-emerald-100 bg-emerald-950/50 p-3.5 rounded-xl border border-emerald-500/20">
-        {pool.message}
-      </p>
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        <div className="rounded-xl border border-emerald-500/20 bg-emerald-950/50 p-3.5">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-400/80">Where to meet</p>
+          <p className="mt-1 text-sm leading-relaxed text-emerald-100"><MeetingPlace meetingPoint={pool.meetingPoint} locationName={sharedOrigin} fallbackLocation={pool.from || pool.rides?.[0]?.from} /></p>
+        </div>
+        <div className="rounded-xl border border-emerald-500/20 bg-emerald-950/50 p-3.5">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-400/80">Meet at</p>
+          <p className="mt-1 text-sm font-semibold leading-relaxed text-emerald-100">{meetingTime}</p>
+          <p className="mt-0.5 text-xs text-emerald-300/70">10 minutes before departure</p>
+        </div>
+      </div>
     </article>
   )
 }
@@ -74,20 +131,19 @@ export default function App() {
   }
 
   return (
-    <main className="app-shell px-4 py-5 text-slate-100 sm:py-10">
-      <div className="relative z-10 mx-auto max-w-4xl">
+    <main className="min-h-screen bg-slate-950 px-4 py-6 text-slate-100 sm:py-10">
+      <div className="mx-auto max-w-3xl">
         {/* Navigation & Header Bar */}
-        <header className="topbar mb-8 flex flex-col items-center justify-between gap-4 sm:flex-row">
+        <header className="mb-8 flex flex-col items-center justify-between gap-4 rounded-2xl border border-slate-800 bg-slate-900/90 p-4 shadow-2xl backdrop-blur-xl sm:flex-row sm:p-5">
           <div className="flex items-center gap-3">
-            <div className="grid h-12 w-12 place-items-center rounded-2xl bg-[#b1ff62] text-xl font-black text-[#15151b] shadow-lg shadow-[#b1ff62]/15">
-              ↗
+            <div className="grid h-12 w-12 place-items-center rounded-2xl bg-gradient-to-tr from-indigo-600 to-violet-500 text-2xl font-black text-white shadow-lg shadow-indigo-500/30">
+              C
             </div>
             <div>
-              <p className="eyebrow mb-1">Campus transit club</p>
               <div className="flex items-center gap-2">
                 <h1 className="text-xl sm:text-2xl font-black tracking-tight text-white">CoRide</h1>
-                <span className="rounded-full border border-[#b1ff62]/20 bg-[#b1ff62]/10 px-2 py-0.5 text-[10px] font-bold text-[#c7ff91]">
-                  Ride board live
+                <span className="rounded-full border border-indigo-500/20 bg-indigo-500/10 px-2 py-0.5 text-[10px] font-bold text-indigo-300">
+                  Campus carpooling
                 </span>
               </div>
               <p className="text-xs text-slate-400">Find your ride, together.</p>
@@ -96,7 +152,7 @@ export default function App() {
 
           {/* User Auth Profile Badge & Sign Out Button */}
           <div className="flex w-full items-center justify-between gap-3 border-t border-white/[0.08] pt-3 sm:w-auto sm:justify-end sm:border-t-0 sm:pt-0">
-            <div className="flex items-center gap-2 rounded-full border border-white/[0.09] bg-white/[0.04] px-3 py-1.5 text-xs text-slate-200">
+            <div className="flex items-center gap-2 rounded-full border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs text-slate-200">
               {currentUser.photoURL ? (
                 <img src={currentUser.photoURL} alt="Avatar" className="h-5 w-5 rounded-full" />
               ) : (
@@ -109,7 +165,7 @@ export default function App() {
 
             <button
               onClick={handleSignOut}
-              className="rounded-xl border border-white/[0.09] bg-white/[0.04] px-3 py-1.5 text-xs font-semibold text-slate-300 transition hover:border-[#ff6f61]/30 hover:bg-[#ff6f61]/10 hover:text-[#ff9e96]"
+              className="rounded-xl border border-slate-700 bg-slate-800/80 px-3 py-1.5 text-xs font-semibold text-slate-300 transition hover:border-rose-500/30 hover:bg-rose-500/10 hover:text-rose-400"
             >
               Sign Out
             </button>
@@ -135,14 +191,10 @@ export default function App() {
         )}
 
         {/* Post Ride Form */}
-        <div className="mb-3 flex items-center justify-between">
-          <span className="route-label">Plan your next ride</span>
-          <span className="text-[10px] font-medium uppercase tracking-wider text-slate-600">Fast · social · less expensive</span>
-        </div>
         <PostForm onNotice={setToast} currentUser={currentUser} />
 
         {/* Live Pool List */}
-        <PoolList onConfirmed={addConfirmedPool} onNotice={setToast} />
+        <PoolList onConfirmed={addConfirmedPool} onNotice={setToast} currentUser={currentUser} />
 
         {/* Confirmed Pools Section */}
         {confirmedPools.length > 0 && (

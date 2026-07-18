@@ -1,10 +1,31 @@
-export function FareComparison({ riderCount = 2 }) {
-  const totalAutoFare = 40
-  const pooledFarePerRider = Math.ceil(totalAutoFare / riderCount)
+export function getFareCalculation(selectedRiderCount = 0) {
   const soloAutoFare = 120
   const uberTaxiFare = 220
-  const savingsPerRider = soloAutoFare - pooledFarePerRider
-  const savingsPercent = Math.round((savingsPerRider / soloAutoFare) * 100)
+  const hasPool = selectedRiderCount >= 2
+  const coRideFarePerRider = hasPool
+    ? Math.ceil(soloAutoFare / selectedRiderCount)
+    : soloAutoFare
+  const savingsPerRider = hasPool ? soloAutoFare - coRideFarePerRider : 0
+  const savingsPercent = hasPool ? Math.round((savingsPerRider / soloAutoFare) * 100) : 0
+
+  return {
+    soloAutoFare,
+    uberTaxiFare,
+    hasPool,
+    coRideFarePerRider,
+    savingsPerRider,
+    savingsPercent,
+  }
+}
+
+export function FareComparison({ riderCount = 0 }) {
+  const {
+    soloAutoFare,
+    uberTaxiFare,
+    hasPool,
+    coRideFarePerRider,
+    savingsPercent,
+  } = getFareCalculation(riderCount)
 
   return (
     <div className="rounded-xl border border-indigo-500/20 bg-indigo-950/30 p-4 backdrop-blur">
@@ -19,22 +40,28 @@ export function FareComparison({ riderCount = 2 }) {
             Estimated Fare Comparison
           </h4>
         </div>
-        <span className="rounded-full bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-0.5 text-[11px] font-bold text-emerald-400">
-          Save {savingsPercent}% per rider
-        </span>
+        {hasPool && (
+          <span className="rounded-full bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-0.5 text-[11px] font-bold text-emerald-400">
+            Save {savingsPercent}% per rider
+          </span>
+        )}
       </div>
 
       <div className="grid grid-cols-3 gap-2 text-center text-xs">
         {/* Pooled Auto - Best Value */}
-        <div className="rounded-lg border border-emerald-500/30 bg-emerald-950/40 p-2.5 relative overflow-hidden">
-          <div className="absolute top-0 right-0 rounded-bl bg-emerald-500 text-[9px] font-extrabold text-slate-950 px-1.5 py-0.2">
-            Best
-          </div>
-          <span className="block text-[10px] font-medium text-emerald-300">CoRide Shared</span>
-          <span className="mt-1 block text-lg font-black text-emerald-200">
-            ₹{pooledFarePerRider}
+        <div className={`relative overflow-hidden rounded-lg border p-2.5 ${hasPool ? 'border-emerald-500/30 bg-emerald-950/40' : 'border-slate-800 bg-slate-900/60'}`}>
+          {hasPool && (
+            <div className="absolute top-0 right-0 rounded-bl bg-emerald-500 px-1.5 py-0.5 text-[9px] font-extrabold text-slate-950">
+              Best
+            </div>
+          )}
+          <span className={`block text-[10px] font-medium ${hasPool ? 'text-emerald-300' : 'text-slate-400'}`}>{hasPool ? 'CoRide Shared' : 'No pool yet'}</span>
+          <span className={`mt-1 block text-lg font-black ${hasPool ? 'text-emerald-200' : 'text-slate-300'}`}>
+            ₹{coRideFarePerRider}
           </span>
-          <span className="text-[9px] text-emerald-400/80">each ({riderCount} riders)</span>
+          <span className={`text-[9px] ${hasPool ? 'text-emerald-400/80' : 'text-slate-500'}`}>
+            {hasPool ? `each (${riderCount} riders)` : 'select riders above'}
+          </span>
         </div>
 
         {/* Solo Auto */}

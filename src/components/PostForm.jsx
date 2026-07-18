@@ -35,9 +35,9 @@ export default function PostForm({ onNotice, currentUser }) {
     return ''
   }
 
-  const [name, setName] = useState(getDefaultName(currentUser))
   const [from, setFrom] = useState('')
   const [destination, setDestination] = useState('')
+  const [eventName, setEventName] = useState('')
   const [departureDateObj, setDepartureDateObj] = useState(null)
   const [pickerOpenedAt, setPickerOpenedAt] = useState(() => new Date())
   const [note, setNote] = useState('')
@@ -46,12 +46,7 @@ export default function PostForm({ onNotice, currentUser }) {
   const [errors, setErrors] = useState({})
   const [submitting, setSubmitting] = useState(false)
 
-  // Update name if currentUser updates
-  useEffect(() => {
-    if (currentUser) {
-      setName(getDefaultName(currentUser))
-    }
-  }, [currentUser])
+  const accountName = getDefaultName(currentUser) || (currentUser?.isAnonymous ? 'Guest Rider' : '')
 
   // Capture user's live GPS coordinates via native browser Geolocation API
   useEffect(() => {
@@ -82,7 +77,7 @@ export default function PostForm({ onNotice, currentUser }) {
 
     const isPastDeparture = departureDateObj && departureDateObj.getTime() <= new Date().getTime()
     const nextErrors = {
-      name: !name.trim() && 'Please enter your name.',
+      name: !accountName && 'Your account name is unavailable. Please sign in again.',
       from: !trimmedFrom && 'Please enter your departure location.',
       destination: !trimmedDestination && 'Please enter your destination.',
       departureDateObj: !departureDateObj
@@ -114,10 +109,11 @@ export default function PostForm({ onNotice, currentUser }) {
       const departureTimestamp = Timestamp.fromDate(departureDateObj)
 
       await addDoc(collection(db, 'rides'), {
-        name: name.trim(),
+        name: accountName,
         uid,
         from: trimmedFrom,
         destination: trimmedDestination,
+        event: eventName.trim(),
         departureDate,
         departureTime,
         departureTimestamp,
@@ -130,6 +126,7 @@ export default function PostForm({ onNotice, currentUser }) {
       // Reset form fields
       setFrom('')
       setDestination('')
+      setEventName('')
       setDepartureDateObj(null)
       setNote('')
       onNotice('Ride posted! Searching for CoRide matches...')
@@ -175,78 +172,93 @@ export default function PostForm({ onNotice, currentUser }) {
   }
 
   return (
-    <section className="surface-card boarding-card rounded-3xl p-5 sm:p-8">
-      <div className="mb-7 flex flex-col gap-4 border-b border-white/[0.08] pb-6 sm:flex-row sm:items-center sm:justify-between">
+    <section className="rounded-2xl border border-slate-800 bg-slate-900/90 p-6 shadow-2xl backdrop-blur-xl sm:p-8">
+      <div className="mb-6 flex flex-col gap-4 border-b border-slate-800/80 pb-6 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-white flex items-center gap-2.5">
-            <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-[#ff9e64]/20 bg-[#ff6f61]/10 text-[#ffae86] shadow-lg shadow-[#ff6f61]/10">
+            <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-indigo-500/30 bg-indigo-500/20 text-indigo-400">
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
               </svg>
             </span>
-            Set your route
+            Where are you headed?
           </h2>
           <p className="mt-1 text-xs leading-relaxed text-slate-400 sm:text-sm">
-            Add the essentials. We’ll surface people making the same journey.
+            Post your trip and instantly pair with students travelling your way.
           </p>
         </div>
 
         {/* GPS location status pill */}
-        <div className="flex items-center gap-2 self-start rounded-full border border-white/[0.08] bg-[#101014] px-3 py-1.5 text-xs text-slate-300 sm:self-auto">
-          <span className={`h-2 w-2 rounded-full ${userCoords ? 'bg-[#b1ff62] animate-pulse' : gettingLocation ? 'bg-[#ff9e64] animate-ping' : 'bg-slate-500'}`} />
+        <div className="flex items-center gap-2 self-start rounded-full border border-slate-700/60 bg-slate-800/80 px-3 py-1.5 text-xs text-slate-300 sm:self-auto">
+          <span className={`h-2 w-2 rounded-full ${userCoords ? 'bg-emerald-400 animate-pulse' : gettingLocation ? 'bg-amber-400 animate-ping' : 'bg-slate-500'}`} />
           {userCoords ? 'GPS Live Location Active' : gettingLocation ? 'Locating...' : 'GPS Inactive'}
         </div>
       </div>
 
       <form onSubmit={submit} className="space-y-5">
-        {/* Name input (prefilled from account) */}
+        {/* Name is owned by the signed-in account and cannot be changed per ride. */}
         <div>
-          <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
-            Your Name
+          <label className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
+            <span>Your Name</span>
+            <span className="normal-case tracking-normal text-slate-500">From your account</span>
           </label>
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className={`w-full rounded-xl border bg-slate-950/70 px-4 py-3 text-sm text-slate-100 shadow-sm outline-none transition-all duration-200 placeholder:text-slate-600 focus:border-indigo-400 focus:ring-4 focus:ring-indigo-500/10 ${
-              errors.name ? 'border-rose-500/80' : 'border-slate-800'
-            }`}
-          />
+          <div className="relative">
+            <input
+              type="text"
+              value={accountName}
+              readOnly
+              aria-readonly="true"
+              className={`w-full cursor-not-allowed rounded-xl border bg-slate-950/70 px-4 py-3 pr-11 text-sm text-slate-300 shadow-sm outline-none ${
+                errors.name ? 'border-rose-500/80' : 'border-slate-800'
+              }`}
+            />
+            <svg className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M12 11V7a4 4 0 00-8 0v4m-1 0h10a1 1 0 011 1v7a1 1 0 01-1 1H3a1 1 0 01-1-1v-7a1 1 0 011-1z" />
+            </svg>
+          </div>
           {errors.name && <p className="mt-1.5 text-xs font-medium text-rose-400">{errors.name}</p>}
         </div>
 
-        {/* Leaving from free-text input */}
-        <div>
-          <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
-            Leaving from
-          </label>
-          <input
-            type="text"
-            value={from}
-            onChange={(e) => setFrom(e.target.value)}
-            className={`w-full rounded-xl border bg-slate-950/70 px-4 py-3 text-sm text-slate-100 shadow-sm outline-none transition-all duration-200 placeholder:text-slate-600 focus:border-indigo-400 focus:ring-4 focus:ring-indigo-500/10 ${
-              errors.from ? 'border-rose-500/80' : 'border-slate-800'
-            }`}
-          />
-          {errors.from && <p className="mt-1.5 text-xs font-medium text-rose-400">{errors.from}</p>}
-        </div>
-
-        {/* Event / Where are you headed free-text input */}
-        <div>
-          <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
-            Event / Where are you headed
-          </label>
-          <input
-            type="text"
-            value={destination}
-            onChange={(e) => setDestination(e.target.value)}
-            className={`w-full rounded-xl border bg-slate-950/70 px-4 py-3 text-sm text-slate-100 shadow-sm outline-none transition-all duration-200 placeholder:text-slate-600 focus:border-indigo-400 focus:ring-4 focus:ring-indigo-500/10 ${
-              errors.destination ? 'border-rose-500/80' : 'border-slate-800'
-            }`}
-          />
-          {errors.destination && (
-            <p className="mt-1.5 text-xs font-medium text-rose-400">{errors.destination}</p>
-          )}
+        {/* Route details: side-by-side on desktop, stacked on mobile. */}
+        <div className="grid gap-4 md:grid-cols-3">
+          <div>
+            <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-400">
+              From
+            </label>
+            <input
+              type="text"
+              value={from}
+              onChange={(e) => setFrom(e.target.value)}
+              placeholder="e.g. Hostel"
+              className={`w-full rounded-xl border bg-slate-950/70 px-4 py-3 text-sm text-slate-100 shadow-sm outline-none transition-all duration-200 placeholder:text-slate-600 focus:border-indigo-400 focus:ring-4 focus:ring-indigo-500/10 ${errors.from ? 'border-rose-500/80' : 'border-slate-800'}`}
+            />
+            {errors.from && <p className="mt-1.5 text-xs font-medium text-rose-400">{errors.from}</p>}
+          </div>
+          <div>
+            <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-400">
+              To
+            </label>
+            <input
+              type="text"
+              value={destination}
+              onChange={(e) => setDestination(e.target.value)}
+              placeholder="e.g. Kalady"
+              className={`w-full rounded-xl border bg-slate-950/70 px-4 py-3 text-sm text-slate-100 shadow-sm outline-none transition-all duration-200 placeholder:text-slate-600 focus:border-indigo-400 focus:ring-4 focus:ring-indigo-500/10 ${errors.destination ? 'border-rose-500/80' : 'border-slate-800'}`}
+            />
+            {errors.destination && <p className="mt-1.5 text-xs font-medium text-rose-400">{errors.destination}</p>}
+          </div>
+          <div>
+            <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-400">
+              Event <span className="normal-case tracking-normal text-slate-600">(optional)</span>
+            </label>
+            <input
+              type="text"
+              value={eventName}
+              onChange={(e) => setEventName(e.target.value)}
+              placeholder="e.g. Workshop"
+              className="w-full rounded-xl border border-slate-800 bg-slate-950/70 px-4 py-3 text-sm text-slate-100 shadow-sm outline-none transition-all duration-200 placeholder:text-slate-600 focus:border-indigo-400 focus:ring-4 focus:ring-indigo-500/10"
+            />
+          </div>
         </div>
 
         {/* Calendar and clock-face time picker */}
@@ -325,7 +337,7 @@ export default function PostForm({ onNotice, currentUser }) {
         <button
           type="submit"
           disabled={submitting}
-          className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-[#b1ff62] px-6 py-3.5 text-sm font-extrabold text-[#15151b] shadow-lg shadow-[#b1ff62]/10 transition-all duration-200 hover:-translate-y-0.5 hover:bg-[#c7ff91] hover:shadow-xl hover:shadow-[#b1ff62]/15 focus:ring-4 focus:ring-[#b1ff62]/20 active:translate-y-0 active:scale-[0.99] disabled:cursor-wait disabled:opacity-60"
+          className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-500 to-indigo-600 px-6 py-3.5 text-sm font-bold text-white shadow-lg shadow-indigo-500/25 transition-all duration-200 hover:from-indigo-600 hover:to-indigo-700 hover:shadow-indigo-500/35 focus:ring-4 focus:ring-indigo-500/30 active:scale-[0.99] disabled:cursor-wait disabled:opacity-60"
         >
           {submitting ? (
             <>
