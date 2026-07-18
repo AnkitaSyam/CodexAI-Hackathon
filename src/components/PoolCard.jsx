@@ -4,6 +4,7 @@ import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet'
 import L from 'leaflet'
 import { db } from '../firebase'
 import { formatDepartureDisplay } from '../utils/dateUtils'
+import { FareComparison } from './FareComparison'
 
 // Fix Leaflet default marker icon path issue in Vite
 import iconUrl from 'leaflet/dist/images/marker-icon.png'
@@ -71,7 +72,6 @@ const fallbackMessage = (pool, departureFormatted) =>
 
 export default function PoolCard({ pool, onConfirmed, onNotice }) {
   const [confirming, setConfirming] = useState(false)
-  const fareEach = Math.ceil(40 / pool.rides.length)
 
   // Formatted departure date and 12-hour AM/PM time
   const departureFormatted = formatDepartureDisplay(
@@ -134,7 +134,7 @@ export default function PoolCard({ pool, onConfirmed, onNotice }) {
     }
   }
 
-  // Derive unique 'from' locations if multiple riders specify different starting points
+  // Derive unique 'from' locations
   const fromLocations = Array.from(new Set(pool.rides.map((r) => r.from).filter(Boolean))).join(' / ')
   const cardTitle = fromLocations ? `From ${fromLocations} → ${pool.destination}` : pool.destination
 
@@ -152,7 +152,7 @@ export default function PoolCard({ pool, onConfirmed, onNotice }) {
           </h3>
         </div>
         <span className="inline-flex items-center rounded-full bg-indigo-500/10 border border-indigo-500/20 px-3 py-1 text-xs font-bold text-indigo-300">
-          {pool.rides.length} Riders Matched
+          {pool.rides.length} Riders Ready
         </span>
       </div>
 
@@ -240,44 +240,53 @@ export default function PoolCard({ pool, onConfirmed, onNotice }) {
         </div>
       )}
 
-      {/* Members List */}
-      <div className="space-y-2.5">
-        {pool.rides.map((ride) => (
-          <div
-            key={ride.id}
-            className="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-950/60 px-3.5 py-2.5"
-          >
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-semibold text-slate-200 text-sm">{ride.name}</span>
+      {/* View Matches Before Pooling Section */}
+      <div className="mb-4 rounded-xl border border-slate-800 bg-slate-950/70 p-4">
+        <div className="flex items-center justify-between pb-2 mb-3 border-b border-slate-800">
+          <span className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+            <svg className="h-4 w-4 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            People also headed here ({pool.rides.length})
+          </span>
+          <span className="text-[10px] text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/20 font-medium">
+            Match Preview
+          </span>
+        </div>
+
+        <div className="space-y-2">
+          {pool.rides.map((ride) => (
+            <div
+              key={ride.id}
+              className="flex items-center justify-between rounded-lg bg-slate-900 px-3 py-2 text-xs"
+            >
+              <div>
+                <span className="font-semibold text-slate-100">{ride.name}</span>
                 {ride.from && (
-                  <span className="text-xs text-slate-400">
-                    · Leaving from <strong className="text-slate-300 font-medium">{ride.from}</strong>
+                  <span className="ml-2 text-slate-400">
+                    from <strong className="text-slate-300">{ride.from}</strong>
                   </span>
                 )}
+                {ride.note && <p className="text-[11px] text-slate-500 mt-0.5">{ride.note}</p>}
               </div>
-              {ride.note && <p className="mt-0.5 text-xs text-slate-400">{ride.note}</p>}
+              <span className="rounded bg-slate-800 px-2 py-0.5 text-[11px] text-indigo-300 font-medium border border-slate-700/60">
+                {formatDepartureDisplay(ride.departureDate, ride.departureTime, ride.departureTimestamp)}
+              </span>
             </div>
-            <span className="text-xs text-slate-400 font-medium">
-              {formatDepartureDisplay(ride.departureDate, ride.departureTime, ride.departureTimestamp)}
-            </span>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
 
-      {/* Estimated Fare Split */}
-      <div className="mt-4 flex items-center justify-between rounded-xl bg-indigo-950/40 border border-indigo-500/20 px-4 py-3 text-xs sm:text-sm text-indigo-300">
-        <span>Estimated total auto fare: <strong className="text-white">₹40</strong></span>
-        <span className="font-semibold text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-lg border border-emerald-500/20">
-          ₹{fareEach} per rider
-        </span>
+      {/* Integrated Estimated Fare Comparison */}
+      <div className="mb-4">
+        <FareComparison riderCount={pool.rides.length} />
       </div>
 
-      {/* Action button */}
+      {/* Action Button: Pool with these people */}
       <button
         onClick={confirmPool}
         disabled={confirming}
-        className="mt-4 w-full rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-4 py-3 text-sm font-bold text-white shadow-lg shadow-emerald-500/20 transition-all duration-200 hover:from-emerald-600 hover:to-emerald-700 hover:shadow-emerald-500/30 focus:ring-4 focus:ring-emerald-500/30 active:scale-[0.99] disabled:cursor-wait disabled:opacity-60 flex items-center justify-center gap-2"
+        className="w-full rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-4 py-3.5 text-sm font-bold text-white shadow-lg shadow-emerald-500/20 transition-all duration-200 hover:from-emerald-600 hover:to-emerald-700 hover:shadow-emerald-500/30 focus:ring-4 focus:ring-emerald-500/30 active:scale-[0.99] disabled:cursor-wait disabled:opacity-60 flex items-center justify-center gap-2"
       >
         {confirming ? (
           <>
@@ -289,9 +298,9 @@ export default function PoolCard({ pool, onConfirmed, onNotice }) {
           </>
         ) : (
           <>
-            Confirm & Join Pool
+            Pool with these people
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
             </svg>
           </>
         )}

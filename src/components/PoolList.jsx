@@ -111,7 +111,7 @@ export default function PoolList({ onConfirmed, onNotice }) {
   }, [rides])
 
   return (
-    <section className="mt-10">
+    <section className="mt-12">
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-white flex items-center gap-2">
@@ -119,14 +119,14 @@ export default function PoolList({ onConfirmed, onNotice }) {
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
               <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500" />
             </span>
-            Live CoRide Matches
+            Boarding now
           </h2>
           <p className="mt-1 text-xs sm:text-sm text-slate-400">
-            Riders paired within 15 minutes of departure & same destination.
+            A live board of people headed in your direction.
           </p>
         </div>
-        <span className="rounded-full bg-slate-800 border border-slate-700 px-3 py-1 text-xs text-slate-300 font-medium">
-          {pools.length} Active Pools
+        <span className="rounded-full border border-[#b1ff62]/15 bg-[#b1ff62]/[0.07] px-3 py-1 text-xs font-medium text-[#c7ff91]">
+          {pools.length} pools forming
         </span>
       </div>
 

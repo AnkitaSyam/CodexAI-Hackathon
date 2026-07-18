@@ -9,10 +9,21 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
+    "@mui/material": "^7.3.8",
+    "@mui/x-date-pickers": "^9.10.0",
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
+    "@mui/material": "^9.2.0",
+    "@mui/x-date-pickers": "^9.10.0",
     "@vitejs/plugin-react": "latest",
+    "dayjs": "^1.11.21",
     "firebase": "^12.16.0",
+    "dayjs": "^1.11.21",
     "leaflet": "^1.9.4",
     "react": "latest",
+    "react-datepicker": "^9.1.0",
     "react-dom": "latest",
     "react-leaflet": "^5.0.0",
     "vite": "latest"

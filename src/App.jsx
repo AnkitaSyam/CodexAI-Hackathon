@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import PostForm from './components/PostForm'
 import PoolList from './components/PoolList'
-import { auth, googleProvider, signInWithPopup, signInAnonymously, signOut, onAuthStateChanged } from './firebase'
+import AuthScreen from './components/AuthScreen'
+import { auth, signOut, onAuthStateChanged } from './firebase'
 
 function ConfirmedPool({ pool }) {
   return (
@@ -25,7 +26,6 @@ function ConfirmedPool({ pool }) {
   )
 }
 
-
 export default function App() {
   const [toast, setToast] = useState('')
   const [confirmedPools, setConfirmedPools] = useState([])
@@ -48,26 +48,6 @@ export default function App() {
     return unsubscribe
   }, [])
 
-  const handleGoogleSignIn = async () => {
-    try {
-      await signInWithPopup(auth, googleProvider)
-      setToast('Signed in successfully!')
-    } catch (err) {
-      console.warn('Google sign in error:', err)
-      setToast('Sign in failed. Check Firebase Auth configuration.')
-    }
-  }
-
-  const handleGuestSignIn = async () => {
-    try {
-      await signInAnonymously(auth)
-      setToast('Signed in as Guest!')
-    } catch (err) {
-      console.warn('Guest sign in error:', err)
-      setToast('Guest sign in unavailable.')
-    }
-  }
-
   const handleSignOut = () => {
     signOut(auth)
     setToast('Signed out.')
@@ -75,76 +55,64 @@ export default function App() {
 
   const addConfirmedPool = (pool) => setConfirmedPools((current) => [pool, ...current])
 
+  // Loading state
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-slate-400">
+        <svg className="h-10 w-10 animate-spin text-indigo-500 mb-3" fill="none" viewBox="0 0 24 24">
+          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+        </svg>
+        <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Loading CoRide...</p>
+      </div>
+    )
+  }
+
+  // Auth Screen for unauthenticated visitors
+  if (!currentUser) {
+    return <AuthScreen onNotice={setToast} />
+  }
+
   return (
-    <main className="min-h-screen bg-slate-950 text-slate-100 px-4 py-6 sm:py-10">
-      <div className="mx-auto max-w-3xl">
+    <main className="app-shell px-4 py-5 text-slate-100 sm:py-10">
+      <div className="relative z-10 mx-auto max-w-4xl">
         {/* Navigation & Header Bar */}
-        <header className="mb-8 rounded-2xl border border-slate-800 bg-slate-900/80 p-4 sm:p-5 shadow-2xl backdrop-blur-xl flex flex-col sm:flex-row items-center justify-between gap-4">
+        <header className="topbar mb-8 flex flex-col items-center justify-between gap-4 sm:flex-row">
           <div className="flex items-center gap-3">
-            <div className="grid h-12 w-12 place-items-center rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 text-2xl font-black text-white shadow-lg shadow-indigo-500/30">
-              C
+            <div className="grid h-12 w-12 place-items-center rounded-2xl bg-[#b1ff62] text-xl font-black text-[#15151b] shadow-lg shadow-[#b1ff62]/15">
+              ↗
             </div>
             <div>
+              <p className="eyebrow mb-1">Campus transit club</p>
               <div className="flex items-center gap-2">
                 <h1 className="text-xl sm:text-2xl font-black tracking-tight text-white">CoRide</h1>
-                <span className="rounded-full bg-indigo-500/10 border border-indigo-500/20 px-2 py-0.5 text-[10px] font-bold text-indigo-400">
-                  Campus Carpooling
+                <span className="rounded-full border border-[#b1ff62]/20 bg-[#b1ff62]/10 px-2 py-0.5 text-[10px] font-bold text-[#c7ff91]">
+                  Ride board live
                 </span>
               </div>
               <p className="text-xs text-slate-400">Find your ride, together.</p>
             </div>
           </div>
 
-          {/* User Auth & Map Status */}
-          <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end border-t sm:border-t-0 pt-3 sm:pt-0 border-slate-800">
-            {/* Leaflet OpenStreetMap status badge */}
-            <span
-              className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium border bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
-              title="OpenStreetMap Powered — Zero API Keys Required"
-            >
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              OpenStreetMap Active
-            </span>
-
-            {/* User Account / Auth */}
-            {!authLoading && (
-              currentUser ? (
-                <div className="flex items-center gap-2">
-                  <div className="flex items-center gap-2 rounded-full bg-slate-800 border border-slate-700 px-3 py-1 text-xs text-slate-200">
-                    {currentUser.photoURL ? (
-                      <img src={currentUser.photoURL} alt="Avatar" className="h-5 w-5 rounded-full" />
-                    ) : (
-                      <span className="h-2 w-2 rounded-full bg-indigo-400" />
-                    )}
-                    <span className="font-semibold max-w-[100px] truncate">
-                      {currentUser.displayName || 'Campus Rider'}
-                    </span>
-                  </div>
-                  <button
-                    onClick={handleSignOut}
-                    className="text-xs text-slate-400 hover:text-white transition"
-                    title="Sign Out"
-                  >
-                    Sign Out
-                  </button>
-                </div>
+          {/* User Auth Profile Badge & Sign Out Button */}
+          <div className="flex w-full items-center justify-between gap-3 border-t border-white/[0.08] pt-3 sm:w-auto sm:justify-end sm:border-t-0 sm:pt-0">
+            <div className="flex items-center gap-2 rounded-full border border-white/[0.09] bg-white/[0.04] px-3 py-1.5 text-xs text-slate-200">
+              {currentUser.photoURL ? (
+                <img src={currentUser.photoURL} alt="Avatar" className="h-5 w-5 rounded-full" />
               ) : (
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={handleGoogleSignIn}
-                    className="rounded-xl bg-indigo-600 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-indigo-700 shadow-md shadow-indigo-600/20"
-                  >
-                    Sign in with Google
-                  </button>
-                  <button
-                    onClick={handleGuestSignIn}
-                    className="rounded-xl border border-slate-700 bg-slate-800 px-2.5 py-1.5 text-xs font-semibold text-slate-300 transition hover:bg-slate-700"
-                  >
-                    Guest
-                  </button>
-                </div>
-              )
-            )}
+                <span className="h-2 w-2 rounded-full bg-indigo-400 animate-pulse" />
+              )}
+              <span className="font-semibold max-w-[120px] truncate">
+                {currentUser.displayName || currentUser.email?.split('@')[0] || 'Campus Rider'}
+              </span>
+            </div>
+
+            <button
+              onClick={handleSignOut}
+              className="rounded-xl border border-white/[0.09] bg-white/[0.04] px-3 py-1.5 text-xs font-semibold text-slate-300 transition hover:border-[#ff6f61]/30 hover:bg-[#ff6f61]/10 hover:text-[#ff9e96]"
+            >
+              Sign Out
+            </button>
           </div>
         </header>
 
@@ -152,7 +120,7 @@ export default function App() {
         {toast && (
           <div
             role="status"
-            className="mb-6 rounded-xl border border-indigo-500/30 bg-indigo-950/60 px-4 py-3 text-xs sm:text-sm font-medium text-indigo-200 shadow-xl backdrop-blur-xl flex items-center justify-between"
+            className="mb-6 flex items-center justify-between rounded-2xl border border-indigo-400/25 bg-indigo-950/70 px-4 py-3 text-xs font-medium text-indigo-100 shadow-xl shadow-indigo-950/20 backdrop-blur-xl sm:text-sm"
           >
             <span className="flex items-center gap-2">
               <svg className="h-4 w-4 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -167,6 +135,10 @@ export default function App() {
         )}
 
         {/* Post Ride Form */}
+        <div className="mb-3 flex items-center justify-between">
+          <span className="route-label">Plan your next ride</span>
+          <span className="text-[10px] font-medium uppercase tracking-wider text-slate-600">Fast · social · less expensive</span>
+        </div>
         <PostForm onNotice={setToast} currentUser={currentUser} />
 
         {/* Live Pool List */}
